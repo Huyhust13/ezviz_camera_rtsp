@@ -13,6 +13,19 @@ Livestreams an RTSP camera to a web page, reachable remotely over Tailscale.
   - `/profile` — `GET` current profile + available profiles; `POST /profile/<name>` to switch
 - Config lives in `.env` (not committed — holds the camera's RTSP credentials).
 
+## Getting the RTSP URL (EZVIZ C1C)
+
+EZVIZ cameras run Hikvision firmware under the hood, so they can be configured locally with Hikvision's **iVMS-4200** client instead of the cloud-only EZVIZ app — that's what exposes the plain RTSP stream this project needs.
+
+1. **Find the camera's IP** — check your router's DHCP client list / connected devices page for the camera (EZVIZ/Hikvision MAC vendor), or check the EZVIZ app under the device's network info. A LAN scan (`nmap -sn 192.168.x.0/24` or `arp-scan --localnet`) from another machine on the same network works too.
+2. **Install iVMS-4200** (Windows/macOS, from Hikvision's site) on a machine on the same LAN as the camera.
+3. **Add the camera** in iVMS-4200 via Device Management → add by IP address, logging in with the camera's admin credentials (set during EZVIZ app activation, or on the camera's label).
+4. **Turn off image/video encryption** — in the camera's configuration (Configuration → Network → Advanced, or Configuration → System → Security, varies by firmware) find the "Image Encryption" / "Video Encryption" toggle and disable it. Leaving it on requires appending the camera's verification code to the RTSP credentials, which breaks a plain `user:password` RTSP URL.
+5. **Confirm RTSP is enabled** and note the port (default `554`).
+6. The RTSP URL is then `rtsp://<user>:<password>@<ip>:554/H.264` for the main stream, or `/H.264/ch1/sub` for the lower-res substream this project defaults to (see [Notes](#notes)) — set it in `.env` as `RTSP_URL_MAIN` / `RTSP_URL_SUB`.
+
+Exact menu names shift between firmware versions — if a setting isn't where expected, search iVMS-4200's full configuration tree for "encryption".
+
 ## Run it
 
 ```
