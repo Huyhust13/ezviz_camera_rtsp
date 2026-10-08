@@ -1,0 +1,15 @@
+[Unit]
+Description=Camera livestream web app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=huy
+WorkingDirectory=/home/huy/camera
+ExecStart=/home/huy/camera/venv/bin/python /home/huy/camera/app.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

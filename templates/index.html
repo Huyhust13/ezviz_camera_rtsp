@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera</title>
+<style>
+  html, body { margin: 0; background: #111; height: 100%; font-family: system-ui, sans-serif; }
+  .wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 10px; }
+  .video { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; }
+  img { max-width: 100%; max-height: 100%; }
+  .controls { display: flex; gap: 8px; padding: 10px; }
+  button {
+    background: #222; color: #ccc; border: 1px solid #444; border-radius: 6px;
+    padding: 8px 16px; font-size: 14px; cursor: pointer;
+  }
+  button.active { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
+  button:disabled { opacity: 0.5; cursor: wait; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="video">
+      <img src="/video_feed" alt="live camera feed">
+    </div>
+    <div class="controls">
+      <button id="btn-sub" onclick="setProfile('sub')">Low CPU (sub)</button>
+      <button id="btn-main" onclick="setProfile('main')">Full res (main)</button>
+    </div>
+  </div>
+
+<script>
+async function refreshStatus() {
+  try {
+    const res = await fetch('/profile');
+    const data = await res.json();
+    document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('btn-' + data.profile);
+    if (btn) btn.classList.add('active');
+  } catch (e) { /* ignore, retry on next poll */ }
+}
+
+async function setProfile(name) {
+  const buttons = document.querySelectorAll('.controls button');
+  buttons.forEach(b => b.disabled = true);
+  try {
+    await fetch('/profile/' + name, { method: 'POST' });
+  } finally {
+    buttons.forEach(b => b.disabled = false);
+    refreshStatus();
+  }
+}
+
+refreshStatus();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>
