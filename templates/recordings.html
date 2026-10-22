@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recordings</title>
+<style>
+  html, body { margin: 0; background: #111; color: #ccc; font-family: system-ui, sans-serif; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 12px 16px 40px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0 12px; }
+  h1 { font-size: 18px; margin: 0; color: #fff; }
+  h2 { font-size: 14px; margin: 20px 0 6px; color: #888; font-weight: 600; }
+  a.button {
+    background: #222; color: #ccc; border: 1px solid #444; border-radius: 6px;
+    padding: 8px 16px; font-size: 14px; text-decoration: none;
+  }
+  .player { background: #000; border-radius: 6px; overflow: hidden; }
+  .player video { display: block; width: 100%; max-height: 70vh; background: #000; }
+  .now { font-size: 13px; color: #888; padding: 6px 0 0; min-height: 18px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: flex; gap: 12px; align-items: center; padding: 10px 12px; margin: 4px 0;
+    background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px; cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  li:hover { border-color: #444; }
+  li.playing { border-color: #2d6cdf; background: #16213a; }
+  li.active { cursor: default; opacity: 0.7; }
+  .start { color: #fff; font-weight: 600; min-width: 72px; }
+  .meta { color: #888; font-size: 13px; flex: 1; }
+  .badge { font-size: 12px; color: #ff6b6b; }
+  .empty { color: #888; padding: 40px 0; text-align: center; }
+  a.dl { color: #888; font-size: 13px; text-decoration: none; }
+  a.dl:hover { color: #ccc; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Recordings <span style="color:#888;font-weight:400">({{ total }})</span></h1>
+      <a class="button" href="/">Live</a>
+    </header>
+
+    {% if days %}
+    <div class="player"><video id="player" controls playsinline preload="none"></video></div>
+    <div class="now" id="now">Select a clip</div>
+
+    {% for day, clips in days %}
+    <h2>{{ day }}</h2>
+    <ul>
+      {% for c in clips %}
+      {% set url = "/recordings/" ~ c.day ~ "/" ~ c.name %}
+      <li class="{{ 'active' if c.active }}" {% if not c.active %}data-src="{{ url }}" data-label="{{ c.day }} {{ c.start }}"{% endif %}>
+        <span class="start">{{ c.start }}</span>
+        <span class="meta">
+          {% if c.duration %}{{ '%d:%02d' % (c.duration // 60, c.duration % 60) }} · {% endif %}{{ '%.1f' % c.size_mb }} MB
+        </span>
+        {% if c.active %}
+        <span class="badge">● recording</span>
+        {% else %}
+        <a class="dl" href="{{ url }}" download onclick="event.stopPropagation()">download</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+    {% else %}
+    <div class="empty">No recordings yet. Clips appear here when a person is detected.</div>
+    {% endif %}
+  </div>
+
+<script>
+const player = document.getElementById('player');
+const now = document.getElementById('now');
+
+document.querySelectorAll('li[data-src]').forEach(li => {
+  li.addEventListener('click', () => {
+    document.querySelectorAll('li.playing').forEach(x => x.classList.remove('playing'));
+    li.classList.add('playing');
+    player.src = li.dataset.src;
+    player.play();
+    now.textContent = li.dataset.label;
+  });
+});
+</script>
+</body>
+</html>

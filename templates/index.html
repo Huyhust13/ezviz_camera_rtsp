@@ -8,7 +8,9 @@
   html, body { margin: 0; background: #111; height: 100%; font-family: system-ui, sans-serif; }
   .wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 10px; }
   .video { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; }
-  img { max-width: 100%; max-height: 100%; }
+  .stage { position: relative; display: inline-block; max-width: 100%; max-height: 100%; line-height: 0; }
+  img { display: block; max-width: 100%; max-height: calc(100vh - 70px); }
+  #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .controls { display: flex; gap: 8px; padding: 10px; }
   button {
     background: #222; color: #ccc; border: 1px solid #444; border-radius: 6px;
@@ -16,16 +18,31 @@
   }
   button.active { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
   button:disabled { opacity: 0.5; cursor: wait; }
+  a.button {
+    background: #222; color: #ccc; border: 1px solid #444; border-radius: 6px;
+    padding: 8px 16px; font-size: 14px; text-decoration: none; line-height: normal;
+  }
+  #stats {
+    position: absolute; top: 8px; left: 8px; padding: 3px 8px; border-radius: 4px;
+    background: rgba(0, 0, 0, 0.6); color: #fff; font: 13px/1.4 ui-monospace, monospace;
+    pointer-events: none;
+  }
+  #stats.down { color: #ff6b6b; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <div class="video">
-      <img src="/video_feed" alt="live camera feed">
+      <div class="stage">
+        <img id="feed" src="/video_feed" alt="live camera feed">
+        <canvas id="overlay"></canvas>
+        <div id="stats">-- fps</div>
+      </div>
     </div>
     <div class="controls">
       <button id="btn-sub" onclick="setProfile('sub')">Low CPU (sub)</button>
       <button id="btn-main" onclick="setProfile('main')">Full res (main)</button>
+      <a class="button" href="/recordings">Recordings</a>
     </div>
   </div>
 
@@ -51,8 +68,63 @@ async function setProfile(name) {
   }
 }
 
+const feed = document.getElementById('feed');
+const overlay = document.getElementById('overlay');
+const ctx = overlay.getContext('2d');
+
+function drawBoxes(data) {
+  // match the canvas to the displayed image size, then scale from detector frame pixels
+  const w = feed.clientWidth, h = feed.clientHeight;
+  if (overlay.width !== w || overlay.height !== h) { overlay.width = w; overlay.height = h; }
+  ctx.clearRect(0, 0, w, h);
+  if (!data.boxes || !data.boxes.length || !data.width) return;
+  const sx = w / data.width, sy = h / data.height;
+  ctx.lineWidth = 2;
+  ctx.font = '13px system-ui, sans-serif';
+  for (const b of data.boxes) {
+    const x = b.x1 * sx, y = b.y1 * sy;
+    ctx.strokeStyle = '#00e676';
+    ctx.strokeRect(x, y, (b.x2 - b.x1) * sx, (b.y2 - b.y1) * sy);
+    const label = 'person ' + b.score.toFixed(2);
+    const ty = y > 18 ? y - 18 : y;
+    ctx.fillStyle = '#00e676';
+    ctx.fillRect(x, ty, ctx.measureText(label).width + 8, 18);
+    ctx.fillStyle = '#000';
+    ctx.fillText(label, x + 4, ty + 13);
+  }
+}
+
+async function refreshDetections() {
+  try {
+    const res = await fetch('/detections');
+    drawBoxes(await res.json());
+  } catch (e) { ctx.clearRect(0, 0, overlay.width, overlay.height); }
+}
+
+const stats = document.getElementById('stats');
+
+async function refreshStats() {
+  try {
+    const data = await (await fetch('/health')).json();
+    if (!data.connected) {
+      stats.textContent = 'camera disconnected';
+      stats.className = 'down';
+      return;
+    }
+    const size = data.width ? ` · ${data.width}×${data.height}` : '';
+    stats.textContent = `${data.fps.toFixed(1)} fps${size}`;
+    stats.className = '';
+  } catch (e) {
+    stats.textContent = 'server unreachable';
+    stats.className = 'down';
+  }
+}
+
 refreshStatus();
 setInterval(refreshStatus, 5000);
+refreshStats();
+setInterval(refreshStats, 1000);
+setInterval(refreshDetections, 300);
 </script>
 </body>
 </html>

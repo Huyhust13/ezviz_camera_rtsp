@@ -36,6 +36,8 @@ class CameraStream:
         self._frame_version = 0
         self._stop = False
         self._connected = False
+        self._fps = 0.0
+        self._frame_size = None
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -43,6 +45,15 @@ class CameraStream:
     @property
     def connected(self) -> bool:
         return self._connected
+
+    @property
+    def fps(self) -> float:
+        return self._fps
+
+    @property
+    def frame_size(self):
+        """(width, height) of the latest frame, or None."""
+        return self._frame_size
 
     @property
     def current_profile(self) -> str:
@@ -61,6 +72,7 @@ class CameraStream:
         return cap
 
     def _run(self):
+        fps_count, fps_start = 0, time.monotonic()
         while not self._stop:
             switched = False
             with self._lock:
@@ -100,8 +112,17 @@ class CameraStream:
                 self._cap.release()
                 self._cap = None
                 self._connected = False
+                self._fps = 0.0
                 time.sleep(self.reconnect_delay)
                 continue
+
+            # capture fps, averaged over ~1s windows
+            fps_count += 1
+            now = time.monotonic()
+            if now - fps_start >= 1.0:
+                self._fps = fps_count / (now - fps_start)
+                fps_count, fps_start = 0, now
+            self._frame_size = (frame.shape[1], frame.shape[0])
 
             frame = self.process_frame(frame)
 
