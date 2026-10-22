@@ -9,6 +9,7 @@ Pipeline per frame:
 """
 import argparse
 import collections
+import json
 import logging
 import os
 import signal
@@ -26,13 +27,13 @@ log = logging.getLogger("human_detector")
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--source", default=os.environ.get("HD_SOURCE", "0"),
-                   help="camera index (0), 'picam', RTSP/HTTP URL or video file")
+    p.add_argument("--source", default=os.environ.get("HD_SOURCE", "http://127.0.0.1:8000/video_feed"),
+                   help="camera server MJPEG feed (default), camera index, 'picam', RTSP URL or video file")
     p.add_argument("--width", type=int, default=640)
     p.add_argument("--height", type=int, default=480)
     p.add_argument("--fps", type=float, default=10, help="capture / recording fps")
     p.add_argument("--out", default=os.environ.get("HD_OUT", os.path.expanduser("~/human_detector/recordings")))
-    p.add_argument("--skip", type=int, default=5, help="run detector on 1 of every N frames")
+    p.add_argument("--skip", type=int, default=8, help="run detector on 1 of every N frames")
     p.add_argument("--hold", type=float, default=10, help="seconds to keep detecting/recording after last person")
     p.add_argument("--motion-hold", type=float, default=1.0, help="seconds to keep detecting after last motion")
     p.add_argument("--motion-area", type=float, default=0.005, help="fraction of pixels that must change")
@@ -40,10 +41,13 @@ def parse_args():
     p.add_argument("--max-clip", type=float, default=600, help="split clips longer than this (seconds)")
     p.add_argument("--retention", type=float, default=24, help="delete recordings older than this (hours)")
     p.add_argument("--min-free-gb", type=float, default=1.0, help="delete oldest recordings below this free space")
-    p.add_argument("--imgsz", type=int, default=320, help="detector input size (320/416/640)")
+    p.add_argument("--imgsz", type=int, default=640,
+                   help="detector input size (320/416/640); 640 needed for small/far people")
     p.add_argument("--conf", type=float, default=0.4)
     p.add_argument("--threads", type=int, default=4)
-    p.add_argument("--fourcc", default="mp4v", help="video codec for cv2.VideoWriter")
+    p.add_argument("--fourcc", default="avc1", help="video codec for cv2.VideoWriter (avc1 = H.264, plays in browsers)")
+    p.add_argument("--publish", default=os.environ.get("HD_PUBLISH", "/dev/shm/human_detections.json"),
+                   help="write latest boxes here as JSON for the camera server overlay ('' to disable)")
     p.add_argument("--realtime", action="store_true",
                    help="for files: use wall clock instead of frame timestamps")
     return p.parse_args()
@@ -123,20 +127,25 @@ class Recorder:
         self.path = None
         self.started = 0.0
         self.frames = 0
+        self.shape = None
 
     def write(self, frame, now, wall, preroll=()):
-        if self.writer is not None and now - self.started > self.max_clip:
+        # a new clip also starts if the frame size changes (camera server profile switch)
+        if self.writer is not None and (now - self.started > self.max_clip
+                                        or frame.shape[:2] != self.shape):
             self.close()
         if self.writer is None:
             day_dir = os.path.join(self.out_dir, wall.strftime("%Y-%m-%d"))
             os.makedirs(day_dir, exist_ok=True)
             self.path = os.path.join(day_dir, wall.strftime("person_%H%M%S.mp4"))
-            h, w = frame.shape[:2]
+            h, w = self.shape = frame.shape[:2]
             self.writer = cv2.VideoWriter(self.path, self.fourcc, self.fps, (w, h))
             self.started = now
             self.frames = 0
             log.info("recording -> %s", self.path)
             for f in preroll:
+                if f.shape[:2] != self.shape:
+                    continue
                 self.writer.write(f)
                 self.frames += 1
         self.writer.write(frame)
@@ -173,6 +182,25 @@ def cleanup(out_dir, retention_h, min_free_gb):
             os.rmdir(root)
     if removed:
         log.info("cleanup: removed %d old recording(s)", removed)
+
+
+# ---------------------------------------------------------------- overlay
+
+def publish(path, boxes, frame):
+    """Atomically write the latest boxes so the camera server can overlay them."""
+    if not path:
+        return
+    h, w = frame.shape[:2]
+    data = {"ts": time.time(), "width": w, "height": h,
+            "boxes": [{"x1": x1, "y1": y1, "x2": x2, "y2": y2, "score": round(s, 3)}
+                      for x1, y1, x2, y2, s in boxes]}
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+    except OSError as e:
+        log.warning("publish failed: %s", e)
 
 
 # ---------------------------------------------------------------- main loop
@@ -243,14 +271,16 @@ def main():
             if active and frame_i % args.skip == 0:
                 t0 = time.perf_counter()
                 boxes = detector(frame)
+                publish(args.publish, boxes, frame)
                 stats["det"] += 1
                 stats["det_ms"] += (time.perf_counter() - t0) * 1000
                 if boxes:
                     if now >= person_until:
                         log.info("person detected (%d)", len(boxes))
                     person_until = now + args.hold
-            elif not active:
+            elif not active and boxes:
                 boxes = []
+                publish(args.publish, boxes, frame)
 
             if now < person_until:
                 draw(frame, boxes, wall)
