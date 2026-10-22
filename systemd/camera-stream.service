@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=huy
-WorkingDirectory=/home/huy/camera
-ExecStart=/home/huy/camera/venv/bin/python /home/huy/camera/app.py
+WorkingDirectory=/home/huy/home-camera/camera
+ExecStart=/home/huy/home-camera/camera/venv/bin/python /home/huy/home-camera/camera/app.py
 Restart=on-failure
 RestartSec=3
 

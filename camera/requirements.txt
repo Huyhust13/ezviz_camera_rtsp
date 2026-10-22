@@ -1,3 +1,4 @@
-flask
-opencv-python-headless
-python-dotenv
+# All dependencies come from apt on the Pi (venv uses --system-site-packages):
+#   sudo apt install python3-flask python3-dotenv python3-opencv python3-numpy
+# The apt OpenCV (4.6) is the one tested with the camera's HEVC RTSP stream; pip's
+# opencv-python-headless is a different build and pulls numpy 2, so it is not used.

@@ -22,11 +22,14 @@ PROFILES = {
 DEFAULT_PROFILE = os.environ.get("DEFAULT_PROFILE", "sub")
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
-# written by ~/human_detector; boxes older than DETECTIONS_MAX_AGE seconds are dropped
+# written by ../human_detector; boxes older than DETECTIONS_MAX_AGE seconds are dropped
 DETECTIONS_FILE = os.environ.get("DETECTIONS_FILE", "/dev/shm/human_detections.json")
 DETECTIONS_MAX_AGE = float(os.environ.get("DETECTIONS_MAX_AGE", "3"))
-# clips recorded by ~/human_detector, laid out as YYYY-MM-DD/person_HHMMSS.mp4
-RECORDINGS_DIR = os.environ.get("RECORDINGS_DIR", "/home/huy/human_detector/recordings")
+# clips recorded by ../human_detector, laid out as YYYY-MM-DD/person_HHMMSS.mp4
+RECORDINGS_DIR = os.environ.get(
+    "RECORDINGS_DIR",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "human_detector", "recordings"),
+)
 # a clip modified this recently is still being written (not playable yet)
 RECORDING_ACTIVE_SECS = 5
 

@@ -9,8 +9,8 @@ Livestreams an RTSP camera to a web page, reachable remotely over Tailscale.
   - `/` — web page with the live view and a profile toggle
   - `/video_feed` — MJPEG stream
   - `/snapshot.jpg` — single current frame as JPEG
-  - `/detections` — latest person boxes from `~/human_detector` (read from `/dev/shm/human_detections.json`, dropped after 3 s); the web page polls it every 300 ms and draws the boxes on a canvas over the video, so `/video_feed` itself stays clean
-  - `/recordings` — page listing `~/human_detector` clips by day (newest first) with an in-page player; `/recordings/<day>/<file>.mp4` serves a clip (Range requests, so seeking works). Override the folder with `RECORDINGS_DIR`
+  - `/detections` — latest person boxes from `../human_detector` (read from `/dev/shm/human_detections.json`, dropped after 3 s); the web page polls it every 300 ms and draws the boxes on a canvas over the video, so `/video_feed` itself stays clean
+  - `/recordings` — page listing `../human_detector/recordings` clips by day (newest first) with an in-page player; `/recordings/<day>/<file>.mp4` serves a clip (Range requests, so seeking works). Override the folder with `RECORDINGS_DIR`
   - `/health` — `{"connected", "profile", "fps", "width", "height"}`; the live page shows the capture fps and resolution from it
   - `/profile` — `GET` current profile + available profiles; `POST /profile/<name>` to switch
 - Config lives in `.env` (not committed — holds the camera's RTSP credentials).
@@ -38,7 +38,7 @@ python app.py
 Or as a systemd service (auto-starts on boot, restarts on crash):
 
 ```
-sudo cp camera-stream.service /etc/systemd/system/
+sudo cp ../systemd/camera-stream.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now camera-stream
 ```

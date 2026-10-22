@@ -32,7 +32,8 @@ def parse_args():
     p.add_argument("--width", type=int, default=640)
     p.add_argument("--height", type=int, default=480)
     p.add_argument("--fps", type=float, default=10, help="capture / recording fps")
-    p.add_argument("--out", default=os.environ.get("HD_OUT", os.path.expanduser("~/human_detector/recordings")))
+    p.add_argument("--out", default=os.environ.get(
+        "HD_OUT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "recordings")))
     p.add_argument("--skip", type=int, default=8, help="run detector on 1 of every N frames")
     p.add_argument("--hold", type=float, default=10, help="seconds to keep detecting/recording after last person")
     p.add_argument("--motion-hold", type=float, default=1.0, help="seconds to keep detecting after last motion")

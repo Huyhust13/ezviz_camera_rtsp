@@ -27,7 +27,7 @@ Pi CSI camera: `sudo apt install python3-picamera2` and use `--source picam`.
 
 ## Run
 
-By default it reads the MJPEG feed of the camera server (`~/camera`, `camera-stream.service`)
+By default it reads the MJPEG feed of the camera server (`../camera`, `camera-stream.service`)
 at `http://127.0.0.1:8000/video_feed`, so the camera's RTSP stream is only opened and decoded once.
 
 ```bash
@@ -48,7 +48,7 @@ Useful knobs: `--imgsz 320` (~4x faster, but misses small people), `--skip`, `--
 ## Run as a service
 
 ```bash
-sudo cp human-detector.service /etc/systemd/system/
+sudo cp ../systemd/human-detector.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now human-detector
 journalctl -u human-detector -f
