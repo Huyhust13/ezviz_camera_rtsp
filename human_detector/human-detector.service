@@ -1,0 +1,16 @@
+[Unit]
+Description=Motion-gated human detection recorder
+After=network-online.target camera-stream.service
+Wants=network-online.target camera-stream.service
+
+[Service]
+User=huy
+WorkingDirectory=/home/huy/human_detector
+# reads frames from the camera server (camera-stream.service, port 8000)
+ExecStart=/home/huy/human_detector/.venv/bin/python app.py --source http://127.0.0.1:8000/video_feed --out /home/huy/human_detector/recordings
+Restart=always
+RestartSec=5
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
